@@ -2,13 +2,28 @@
 
 Panduan memakai Live Recorder di HP Android (Termux) dan VPS.
 
+## 0. Ambil kode (git clone)
+Repo ini **privat**, jadi butuh login sekali di Termux:
+```bash
+pkg install -y git gh
+gh auth login
+# pilih: GitHub.com → HTTPS → Yes → usado browser/kode yang muncul,
+# buka github.com/login/device di HP, masukkan kode, izinkan
+gh repo clone yontrisnaa/live-recorder-termux ~/termux
+cd ~/termux
+```
+Tanpa `gh`, alternatif pakai token (ganti `TOKEN`):
+```bash
+git clone https://TOKEN@github.com/yontrisnaa/live-recorder-termux.git ~/termux
+```
+Update kode di lain waktu: `cd ~/termux && git pull`.
+
 ## 1. Syarat
 - HP Android + aplikasi **Termux** (dari F-Droid, bukan Play Store versi lama)
 - Koneksi internet, ruang kosong ±200MB per 20 menit rekaman
 
 ## 2. Install (sekali saja)
 ```bash
-# salin folder termux dari repo ini ke HP, lalu di Termux:
 cd ~/termux
 bash setup-termux.sh
 ```
