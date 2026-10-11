@@ -58,6 +58,7 @@
   <h3>📡 Sedang live</h3>
   <div class="btnrow" style="margin:0 0 6px">
     <button id="refresh">↻ Refresh</button>
+    <button id="bell" style="background:#3a4658">🔔 Notif: off</button>
     <label class="auto"><input type="checkbox" id="auto" checked /> auto 15 dtk</label>
   </div>
   <div id="lives">memuat...</div>
@@ -78,6 +79,7 @@
     <button id="stopmp4" disabled>⏹ Stop</button>
     <button id="dlmp4" disabled>⬇ MP4</button>
   </div>
+  <div style="font-size:12px;color:var(--mut);margin-top:6px">MP4 terunduh otomatis ke folder Download (terbaca galeri) saat stop/selesai.</div>
 </section>
 </div>
 <section class="card" style="margin-top:16px">
@@ -95,6 +97,24 @@ let rec=false,seen=new Set(),chunks=[],bytes=0,hls=null;
 const store=()=>JSON.parse(localStorage.getItem('m3u8store')||'{}');
 const saveStore=o=>localStorage.setItem('m3u8store',JSON.stringify(o));
 let effUrl=''; // URL efektif terakhir (segar atau arsip)
+let liveKnown=new Set(),notifOn=false;
+async function notify(t,b){
+  try{
+    if(!notifOn||!('Notification' in window))return;
+    if(Notification.permission!=='granted')return;
+    const n=new Notification(t,{body:b,tag:'lr'});
+    n.onclick=()=>window.focus();
+  }catch(e){}
+}
+$('bell').onclick=async()=>{
+  try{
+    const p=await Notification.requestPermission();
+    notifOn=(p==='granted');
+    $('bell').textContent=notifOn?'🔔 Notif: on':'🔔 Notif: off';
+    log('notifikasi '+(notifOn?'AKTIF — HP akan bunyi saat ada live/record/selesai':'mati'));
+    if(notifOn)notify('🔔 Notif aktif','Live baru, record & selesai akan diberitahu');
+  }catch(e){log('notif: '+e.message);}
+};
 
 async function refreshLives(){
   const box=$('lives');box.textContent='memuat...';
@@ -133,6 +153,13 @@ async function refreshLives(){
       row.appendChild(bw);row.appendChild(br);box.appendChild(div);
     }
     if(changed)saveStore(st);
+    const ids=rows.map(v=>v.stream_id).filter(Boolean);
+    const fresh=ids.filter(id=>!liveKnown.has(id));
+    if(fresh.length&&liveKnown.size){
+      notify('🔴 Live baru',fresh.length+' siaran terdeteksi — buka halaman untuk merekam');
+      log('live BARU: '+fresh.join(', '));
+    }
+    ids.forEach(id=>liveKnown.add(id));
     log('daftar live: '+rows.length+' (arsip: '+Object.keys(store()).length+')');
   }catch(e){box.textContent='gagal: '+e.message;}
 }
@@ -200,6 +227,7 @@ $('stop').onclick=()=>{
   rec=false;$('rec').disabled=false;$('stop').disabled=true;
   $('dl').disabled=chunks.length===0;$('st').textContent='stopped';
   log('stop. segmen='+seen.size+' size='+(bytes/1048576).toFixed(1)+'MB');
+  notify('⏹ Record .ts berhenti',seen.size+' segmen tersimpan — unduh via tombol ⬇ .ts');
 };
 $('dl').onclick=()=>{
   const blob=new Blob(chunks,{type:'video/mp2t'});
@@ -216,7 +244,10 @@ async function poll(){
     $('sz').textContent=(j.size/1048576).toFixed(1)+' MB';
     if(!j.running){clearInterval(poller);poller=null;
       $('stopmp4').disabled=true;$('dlmp4').disabled=false;
-      log('mp4 selesai size='+(j.size/1048576).toFixed(1)+'MB');}
+      const mb=(j.size/1048576).toFixed(1);
+      log('mp4 selesai size='+mb+'MB — unduh otomatis (masuk Download/galeri)');
+      notify('✅ Rekaman MP4 selesai',mb+' MB — tersimpan, cek Download/galeri');
+      $('dlmp4').click();}
   }catch(e){log('status: '+e.message);}
 }
 async function startMp4(url){
@@ -224,6 +255,7 @@ async function startMp4(url){
   const j=await r.json();job=j.job;
   $('recmp4').disabled=true;$('stopmp4').disabled=false;$('dlmp4').disabled=true;
   log('record mp4 mulai job='+job+' file='+j.file);
+  notify('⏺ Merekam MP4','Berjalan di server — HP boleh dikunci, hasil terunduh otomatis');
   poller=setInterval(poll,5000);poll();
 }
 $('recmp4').onclick=async()=>{
