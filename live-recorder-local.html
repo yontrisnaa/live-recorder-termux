@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Live Recorder — Studio</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<style>
+  :root{--bg:#0b0f17;--panel:#131a26;--panel2:#0e1420;--line:#223047;--txt:#e8eef7;--mut:#8fa1b8;
+    --blue:#2f6fed;--red:#e5484d;--green:#12a594;--purple:#8e4ec6;--amber:#f5a524}
+  *{box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:radial-gradient(1200px 600px at 20% -10%,#16233a 0%,var(--bg) 55%) fixed,var(--bg);color:var(--txt);margin:0;padding:0}
+  header.top{position:sticky;top:0;z-index:5;background:rgba(11,15,23,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  header.top .in{max-width:1080px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:12px}
+  .live-dot{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);animation:blink 1.6s infinite}
+  @keyframes blink{50%{opacity:.35}}
+  header.top h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.3px}
+  header.top small{color:var(--mut)}
+  main{max-width:1080px;margin:0 auto;padding:20px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  .card h3{margin:0 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--mut);display:flex;align-items:center;gap:8px}
+  .ok{font-size:12px;color:var(--green);margin-bottom:10px}
+  video{width:100%;background:#000;border-radius:10px;border:1px solid var(--line);aspect-ratio:16/9}
+  input[type=text],input:not([type]){width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:#0a0f18;color:var(--txt);font-size:13px}
+  input:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+  .btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  button{padding:10px 14px;border:0;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px;color:#fff;transition:transform .06s,filter .15s}
+  button:hover:not(:disabled){filter:brightness(1.12)} button:active:not(:disabled){transform:scale(.97)}
+  #watch,.b-watch{background:var(--blue)} #rec,.b-rec{background:var(--red)}
+  #stop,#stopmp4{background:#3a4658} #dl,#dlmp4,.b-dl{background:var(--green)}
+  #recmp4,.b-recmp4{background:var(--purple)} #refresh{background:var(--blue)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  .stats{display:flex;gap:16px;margin:10px 0;font-size:13px;color:var(--mut)}
+  .stats b{color:var(--txt);font-variant-numeric:tabular-nums}
+  #log{background:#05080d;border:1px solid var(--line);border-radius:10px;padding:10px;height:170px;overflow:auto;font:12px 'Cascadia Code',Consolas,monospace;white-space:pre-wrap;color:#b9c7da}
+  .stream{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:#0d1320}
+  .stream .t{font-weight:700;font-size:14px}
+  .stream .m{font-size:12px;color:var(--mut);margin:2px 0 8px;font-family:monospace}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
+  .b-free{background:rgba(18,165,148,.15);color:#4adbc8;border:1px solid #12a594}
+  .b-lock{background:rgba(245,165,36,.12);color:var(--amber);border:1px solid var(--amber)}
+  .b-save{background:rgba(47,111,237,.12);color:#7aa5ff;border:1px solid var(--blue)}
+  .stream .btnrow{margin-top:2px}
+  .stream .btnrow button{padding:7px 12px;font-size:12px}
+  label.auto{font-size:12px;color:var(--mut);display:inline-flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+<header class="top"><div class="in">
+  <span class="live-dot"></span>
+  <h1>Live Recorder <small>studio &nbsp;•&nbsp; localhost + proxy</small></h1>
+</div></header>
+<main>
+<div class="grid">
+<section class="card">
+  <h3>📡 Sedang live</h3>
+  <div class="btnrow" style="margin:0 0 6px">
+    <button id="refresh">↻ Refresh</button>
+    <label class="auto"><input type="checkbox" id="auto" checked /> auto 15 dtk</label>
+  </div>
+  <div id="lives">memuat...</div>
+</section>
+<section class="card">
+  <h3>🎬 Player & kontrol manual</h3>
+  <video id="v" controls></video>
+  <div class="stats"><span>Status <b id="st">idle</b></span><span>Segmen <b id="n">0</b></span><span>Ukuran <b id="sz">0 MB</b></span></div>
+  <input id="url" value="https://mimigocell.online/live/?streamId=creator_298922_20261011210740_cnlnyy" />
+  <div class="btnrow">
+    <button id="watch">▶ Nonton</button>
+    <button id="rec">⏺ .ts</button>
+    <button id="stop" disabled>⏹ Stop</button>
+    <button id="dl" disabled>⬇ .ts</button>
+  </div>
+  <div class="btnrow">
+    <button id="recmp4">⏺ Record MP4</button>
+    <button id="stopmp4" disabled>⏹ Stop</button>
+    <button id="dlmp4" disabled>⬇ MP4</button>
+  </div>
+</section>
+</div>
+<section class="card" style="margin-top:16px">
+  <h3>🧾 Log</h3>
+  <div class="ok">✅ Semua request lewat <code>/proxy</code> yang menyuntik Referer diizinkan — tidak kena 403.</div>
+  <div id="log"></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const P=u=>'/proxy?url='+encodeURIComponent(u);
+const log=m=>{const el=$('log');el.textContent+=new Date().toLocaleTimeString()+' '+m+'\n';el.scrollTop=el.scrollHeight;};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let rec=false,seen=new Set(),chunks=[],bytes=0,hls=null;
+const store=()=>JSON.parse(localStorage.getItem('m3u8store')||'{}');
+const saveStore=o=>localStorage.setItem('m3u8store',JSON.stringify(o));
+let effUrl=''; // URL efektif terakhir (segar atau arsip)
+
+async function refreshLives(){
+  const box=$('lives');box.textContent='memuat...';
+  try{
+    const r=await fetch(P('https://mimigocell.online/api/lives'),{cache:'no-store'});
+    const j=await r.json(),rows=j.data||[];
+    const st=store();let changed=false;
+    if(!rows.length){box.textContent='tidak ada live saat ini.';return;}
+    box.innerHTML='';
+    for(const v of rows){
+      const sid=v.stream_id;
+      let hlsUrl='',locked=!!v.is_locked,price=v.price_per_10_minutes||0;
+      try{
+        const d=await(await fetch(P('https://mimigocell.online/api/live/'+encodeURIComponent(sid)),{cache:'no-store'})).json();
+        locked=!!d.is_locked||!!d.requires_payment;price=d.price_per_10_minutes||price;
+        if(d.hls_url){hlsUrl=d.hls_url;
+          if(!st[sid]||st[sid].hls_url!==hlsUrl){st[sid]={hls_url:hlsUrl,saved_at:new Date().toISOString(),title:d.title||v.title};changed=true;}
+        }
+      }catch(e){log('detail '+sid+': '+e.message);}
+      let useUrl=hlsUrl,useNote='';
+      if(!useUrl&&st[sid]){useUrl=st[sid].hls_url;useNote=`<span class="badge b-save">📦 arsip ${st[sid].saved_at.slice(0,16).replace('T',' ')}</span>`;}
+      else if(useUrl)useNote='<span class="badge b-free">🟢 segar</span>';
+      const div=document.createElement('div');
+      div.className='stream';
+      const lockBadge=locked?`<span class="badge b-lock">🔒 Rp${Number(price).toLocaleString('id-ID')}</span>`:'<span class="badge b-free">🆓 gratis</span>';
+      div.innerHTML=`<div class="t">${v.title||v.creator_name||sid}${lockBadge}${useNote}</div><div class="m">👁 ${v.viewers??'-'} • ${sid}</div><div class="btnrow"></div>`;
+      const row=div.querySelector('.btnrow');
+      const bw=document.createElement('button');bw.textContent='▶ Nonton';bw.className='b-watch';
+      const br=document.createElement('button');br.textContent='⏺ MP4';br.className='b-recmp4';
+      if(!useUrl){bw.disabled=true;br.disabled=true;
+        const s=document.createElement('small');s.style.color='var(--mut)';s.textContent='terkunci, tanpa arsip';row.appendChild(s);}
+      else{
+        bw.onclick=()=>{$('url').value=useUrl;effUrl=useUrl;$('watch').click();};
+        br.onclick=()=>{$('url').value=useUrl;effUrl=useUrl;startMp4(useUrl);};
+      }
+      row.appendChild(bw);row.appendChild(br);box.appendChild(div);
+    }
+    if(changed)saveStore(st);
+    log('daftar live: '+rows.length+' (arsip: '+Object.keys(store()).length+')');
+  }catch(e){box.textContent='gagal: '+e.message;}
+}
+$('refresh').onclick=refreshLives;
+setInterval(()=>{if($('auto').checked&&!rec&&!job)refreshLives();},15000);
+refreshLives();
+
+async function resolve(input){
+  input=input.trim();
+  const m=input.match(/[?&]streamId=([^&#]+)/);
+  if(m){
+    const sid=decodeURIComponent(m[1]);
+    log('streamId='+sid+' → ambil info live...');
+    const r=await fetch(P('https://mimigocell.online/api/live/'+encodeURIComponent(sid)),{cache:'no-store'});
+    if(!r.ok)throw new Error('API live HTTP '+r.status);
+    const j=await r.json();
+    log(`status=${j.status} locked=${j.is_locked} harga=${j.price_per_10_minutes||0} judul=${j.title||'-'}`);
+    if(j.is_locked||j.requires_payment)log('⚠️ live TERKUNCI/berbayar — URL ditahan server sampai unlock');
+    if(!j.hls_url)throw new Error('tidak ada hls_url (live terkunci/offline?)');
+    log('hls_url OK');return j.hls_url;
+  }
+  if(/\.m3u8($|[?#])/.test(input))return input;
+  throw new Error('input harus URL /live/?streamId=... atau .m3u8 langsung');
+}
+
+$('watch').onclick=async()=>{
+  try{
+    const url=P(await resolve($('url').value)),v=$('v');
+  if(Hls.isSupported()){hls&&hls.destroy();hls=new Hls();hls.loadSource(url);hls.attachMedia(v);
+    hls.on(Hls.Events.ERROR,(_,d)=>log('HLS error: '+d.type+'/'+d.details));}
+  else if(v.canPlayType('application/vnd.apple.mpegurl'))v.src=url;
+  v.play().catch(e=>log('play: '+e));log('menonton via proxy');
+  }catch(e){log('gagal: '+e.message);}
+};
+async function loop(url){
+  while(rec){
+    try{
+      const r=await fetch(P(url),{cache:'no-store'});
+      if(!r.ok){log('playlist HTTP '+r.status);await sleep(3000);continue;}
+      const txt=await r.text();
+      const segs=[...txt.matchAll(/^([^#\s][^\s]*)/gm)].map(m=>m[1].trim())
+        .filter(s=>s.includes('/proxy?url='));
+      for(const s of segs){
+        if(!rec)break;
+        if(seen.has(s))continue;seen.add(s);
+        const q=await fetch(s,{cache:'no-store'});
+        if(!q.ok){log('segmen '+q.status);continue;}
+        const buf=await q.arrayBuffer();chunks.push(buf);bytes+=buf.byteLength;
+        $('n').textContent=seen.size;$('sz').textContent=(bytes/1048576).toFixed(1)+' MB';
+      }
+    }catch(e){log('err: '+e.message);}
+    await sleep(2000);
+  }
+}
+$('rec').onclick=async()=>{
+  let url;
+  try{url=await resolve($('url').value);}
+  catch(e){log('gagal: '+e.message);return;}
+  rec=true;seen=new Set();chunks=[];bytes=0;
+  $('n').textContent='0';$('sz').textContent='0 MB';
+  $('rec').disabled=true;$('stop').disabled=false;$('dl').disabled=true;
+  $('st').textContent='RECORDING';log('record mulai');loop(url);
+};
+$('stop').onclick=()=>{
+  rec=false;$('rec').disabled=false;$('stop').disabled=true;
+  $('dl').disabled=chunks.length===0;$('st').textContent='stopped';
+  log('stop. segmen='+seen.size+' size='+(bytes/1048576).toFixed(1)+'MB');
+};
+$('dl').onclick=()=>{
+  const blob=new Blob(chunks,{type:'video/mp2t'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='live_full.ts';a.click();log('download .ts dimulai');
+};
+let job=null,poller=null;
+async function poll(){
+  if(!job)return;
+  try{
+    const r=await fetch('/rec-status?job='+job,{cache:'no-store'});
+    const j=await r.json();
+    $('st').textContent=j.running?('REC-MP4 '+j.elapsed+'s'):'stopped';
+    $('sz').textContent=(j.size/1048576).toFixed(1)+' MB';
+    if(!j.running){clearInterval(poller);poller=null;
+      $('stopmp4').disabled=true;$('dlmp4').disabled=false;
+      log('mp4 selesai size='+(j.size/1048576).toFixed(1)+'MB');}
+  }catch(e){log('status: '+e.message);}
+}
+async function startMp4(url){
+  const r=await fetch('/rec-start?url='+encodeURIComponent(url));
+  const j=await r.json();job=j.job;
+  $('recmp4').disabled=true;$('stopmp4').disabled=false;$('dlmp4').disabled=true;
+  log('record mp4 mulai job='+job+' file='+j.file);
+  poller=setInterval(poll,5000);poll();
+}
+$('recmp4').onclick=async()=>{
+  let url;
+  try{url=await resolve($('url').value);}
+  catch(e){log('gagal: '+e.message);return;}
+  startMp4(url);
+};
+$('stopmp4').onclick=async()=>{
+  if(!job)return;
+  await fetch('/rec-stop?job='+job);
+  clearInterval(poller);poller=null;
+  $('recmp4').disabled=false;$('stopmp4').disabled=true;$('dlmp4').disabled=false;
+  $('st').textContent='stopped';log('stop mp4');
+};
+$('dlmp4').onclick=()=>{
+  if(!job)return;
+  const a=document.createElement('a');a.href='/rec-dl?job='+job;a.click();
+  log('download mp4 dimulai');
+};
+</script>
+</body>
+</html>
